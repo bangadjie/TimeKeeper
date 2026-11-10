@@ -100,8 +100,6 @@ export function TimeKeeperWorkspace() {
 
         {!isFullscreen && (
           <p className="text-center text-xs text-ink/40">
-            Waktu dihitung dari selisih timestamp, jadi tetap akurat walau tab
-            tidak aktif. Preset disimpan di localStorage browser ini.
           </p>
         )}
       </main>
