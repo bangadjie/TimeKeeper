@@ -1,36 +1,67 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Time Keeper
 
-## Getting Started
+Time keeper hitung mundur untuk acara, presentasi, perlombaan, dan sesi fokus.
+Tanpa login — buka halaman utama dan timer langsung siap dipakai.
 
-First, run the development server:
+## Menjalankan
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+npm run dev    # pengembangan
+npm run build  # build produksi
+npm start      # menjalankan hasil build
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Buka [http://localhost:3000](http://localhost:3000).
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+## Fitur
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+- Hitung mundur besar dengan angka monospace `tabular-nums` agar digit tidak bergeser.
+- Preset cepat 5/10/15/30 menit, dapat ditambah dan dihapus; tersimpan otomatis di `localStorage`.
+- Input durasi kustom Jam/Menit/Detik (maksimum 99 jam).
+- Kontrol Mulai, Jeda/Lanjut, Reset, serta +1 Menit dan +5 Menit saat berjalan maupun dijeda.
+- Mode gelap/terang lewat tombol di header; pilihan tersimpan di `localStorage`
+  dan tanpa pilihan mengikuti `prefers-color-scheme` sistem.
+- Status warna: Ink Black pada normal, Soft Pink saat sisa < 1 menit dan saat waktu habis.
+- Mode fullscreen (Fullscreen API) yang menyembunyikan panel pengaturan.
+- Alarm Web Audio API, di-unlock saat tombol Mulai diklik agar lolos kebijakan autoplay.
 
-## Learn More
+## Shortcut
 
-To learn more about Next.js, take a look at the following resources:
+| Tombol | Aksi |
+| --- | --- |
+| `Spasi` | Mulai / Jeda |
+| `R` | Reset |
+| `F` | Masuk / keluar fullscreen |
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+Shortcut diabaikan saat fokus berada di `<input>` atau `<textarea>`.
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+## Struktur
 
-## Deploy on Vercel
+```
+app/                     layout, halaman, tema Tailwind (globals.css)
+components/
+  TimeKeeperWorkspace   komposisi klien: state, shortcut, layout
+  CountdownDisplay      angka hitung mundur + indikator status
+  TimerControls         mulai/jeda/reset/tambah waktu/fullscreen
+  PresetSelector        chip preset, tambah & hapus
+  DurationInput         form jam/menit/detik
+  ThemeToggle           tombol tema di header
+hooks/
+  useTimer              sumber waktu berbasis selisih Date.now()
+  usePresets            persistensi preset di localStorage
+  useTheme              baca/tukar tema via data-theme pada <html>
+  useFullscreen         Fullscreen API pada elemen panggung
+  useKeyboardShortcuts  Spasi / R / F dengan guard input
+lib/
+  time.ts               format & normalisasi durasi
+  audio.ts              AudioContext tunggal + alarm
+  theme.ts              konstanta tema + skrip pra-hidrasi anti-kedip
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Waktu dihitung dari `endAt - Date.now()` pada setiap tick, sehingga tetap akurat
+saat tab di-throttle browser. `localStorage` hanya dibaca dan ditulis di dalam
+`useEffect` agar tidak terjadi hydration mismatch.
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+Kunci penyimpanan sengaja tetap `chronostage.presets.v1`: awalan nama memberi
+isolasi terhadap origin lain, dan mengubahnya akan membuat preset pengguna lama
+tidak terbaca.
