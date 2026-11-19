@@ -11,7 +11,6 @@ export const DEFAULT_DURATION_MS = 10 * MINUTE_MS;
 
 interface UseTimerOptions {
   initialDurationMs?: number;
-  onFinish?: () => void;
 }
 
 /**
@@ -37,7 +36,6 @@ export interface TimerController {
 
 export function useTimer({
   initialDurationMs = DEFAULT_DURATION_MS,
-  onFinish,
 }: UseTimerOptions = {}): TimerController {
   const [durationMs, setDurationMs] = useState(() =>
     clampDuration(initialDurationMs),
@@ -48,11 +46,6 @@ export function useTimer({
   const [status, setStatus] = useState<TimerStatus>("idle");
 
   const endAtRef = useRef<number | null>(null);
-  const onFinishRef = useRef(onFinish);
-
-  useEffect(() => {
-    onFinishRef.current = onFinish;
-  }, [onFinish]);
 
   useEffect(() => {
     if (status !== "running") return;
@@ -67,7 +60,6 @@ export function useTimer({
       if (next === 0) {
         endAtRef.current = null;
         setStatus("finished");
-        onFinishRef.current?.();
       }
     };
 
@@ -105,7 +97,6 @@ export function useTimer({
 
     if (next === 0) {
       setStatus("finished");
-      onFinishRef.current?.();
       return;
     }
     setStatus("paused");

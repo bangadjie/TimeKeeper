@@ -23,7 +23,19 @@ Buka [http://localhost:3000](http://localhost:3000).
   dan tanpa pilihan mengikuti `prefers-color-scheme` sistem.
 - Status warna: Ink Black pada normal, Soft Pink saat sisa < 1 menit dan saat waktu habis.
 - Mode fullscreen (Fullscreen API) yang menyembunyikan panel pengaturan.
-- Alarm Web Audio API, di-unlock saat tombol Mulai diklik agar lolos kebijakan autoplay.
+- Peringatan waktu bertingkat: checkpoint 5 mnt, 3 mnt, 1 mnt, 30 dtk plus baris
+  "Waktu habis" (alarm 0 detik). Tiap checkpoint punya toggle aktif, tombol hapus,
+  dan bisa ditambah sendiri; daftar tersimpan di `localStorage`.
+- Suara kustom per checkpoint: unggah MP3/WAV/OGG/M4A, disimpan sebagai Blob di
+  IndexedDB (bukan `localStorage`), plus tombol Test Sound dan Reset ke Default.
+  Tanpa file kustom, chime WAV dibuat di memori sebagai `Blob`.
+- Pengaturan Audio Output: pilih perangkat lewat `setSinkId` (headset USB/Bluetooth
+  saja, tanpa speaker ruangan), tombol Deteksi Perangkat Audio (izin mikrofon
+  diminta lalu track langsung dihentikan), volume, dan mute. `sinkId`, volume, dan
+  mute tersimpan di `localStorage`; browser tanpa `setSinkId` tetap berbunyi di
+  output default.
+- Semua suara diputar lewat `HTMLAudioElement` supaya bisa dirutekan per perangkat;
+  audio di-unlock saat tombol Mulai diklik agar lolos kebijakan autoplay.
 
 ## Shortcut
 
@@ -33,7 +45,16 @@ Buka [http://localhost:3000](http://localhost:3000).
 | `R` | Reset |
 | `F` | Masuk / keluar fullscreen |
 
-Shortcut diabaikan saat fokus berada di `<input>` atau `<textarea>`.
+Shortcut diabaikan saat fokus berada di `<input>`, `<textarea>`, atau `<select>`
+(termasuk input checkpoint dan dropdown perangkat audio).
+
+## Peringatan bertingkat
+
+Setiap checkpoint berbunyi sekali per sesi. Bunyi hanya dipicu saat sisa waktu
+benar-benar melewati ambang dari atas, jadi timer yang dimulai di 2 menit tidak
+membunyikan checkpoint 5 dan 3 menit. Reset atau tombol +1/+5 Menit mengembalikan
+sisa waktu ke atas sebuah ambang, dan ambang itu aktif kembali untuk penurunan
+berikutnya.
 
 ## Struktur
 
@@ -45,16 +66,24 @@ components/
   TimerControls         mulai/jeda/reset/tambah waktu/fullscreen
   PresetSelector        chip preset, tambah & hapus
   DurationInput         form jam/menit/detik
+  AlertCheckpointsPanel daftar checkpoint, unggah suara, test, reset
+  AudioOutputPanel      pilih perangkat output, volume, mute
   ThemeToggle           tombol tema di header
 hooks/
   useTimer              sumber waktu berbasis selisih Date.now()
   usePresets            persistensi preset di localStorage
   useTheme              baca/tukar tema via data-theme pada <html>
   useFullscreen         Fullscreen API pada elemen panggung
+  useAlertCheckpoints   daftar checkpoint di localStorage
+  useThresholdAlerts    mesin ambang: anti double-trigger + arm ulang
+  useAlertPlayback      pemutaran suara per checkpoint (cache Blob)
+  useAudioOutput        perangkat output, volume, mute, izin mikrofon
   useKeyboardShortcuts  Spasi / R / F dengan guard input
 lib/
   time.ts               format & normalisasi durasi
-  audio.ts              AudioContext tunggal + alarm
+  audio.ts              chime WAV di memori + pemutaran via HTMLAudioElement
+  audioStorage.ts       simpan/baca/hapus Blob suara di IndexedDB
+  alerts.ts             model checkpoint + validasi & persistensi
   theme.ts              konstanta tema + skrip pra-hidrasi anti-kedip
 ```
 

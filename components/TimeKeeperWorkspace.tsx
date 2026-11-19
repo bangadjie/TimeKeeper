@@ -1,28 +1,54 @@
 "use client";
 
 import { useCallback, useRef } from "react";
+import { AlertCheckpointsPanel } from "@/components/AlertCheckpointsPanel";
+import { AudioOutputPanel } from "@/components/AudioOutputPanel";
 import { CountdownDisplay } from "@/components/CountdownDisplay";
 import { DurationInput } from "@/components/DurationInput";
 import { PresetSelector } from "@/components/PresetSelector";
 import { ThemeToggle } from "@/components/ThemeToggle";
 import { TimerControls } from "@/components/TimerControls";
+import { useAlertCheckpoints } from "@/hooks/useAlertCheckpoints";
+import { useAlertPlayback } from "@/hooks/useAlertPlayback";
+import { useAudioOutput } from "@/hooks/useAudioOutput";
 import { useFullscreen } from "@/hooks/useFullscreen";
 import { useKeyboardShortcuts } from "@/hooks/useKeyboardShortcuts";
 import { usePresets } from "@/hooks/usePresets";
+import { useThresholdAlerts } from "@/hooks/useThresholdAlerts";
 import { useTimer } from "@/hooks/useTimer";
-import { playFinishAlarm } from "@/lib/audio";
+import type { AlertCheckpoint } from "@/lib/alerts";
 import { SECOND_MS } from "@/lib/time";
 
 export function TimeKeeperWorkspace() {
   const stageRef = useRef<HTMLElement>(null);
 
-  const handleFinish = useCallback(() => {
-    void playFinishAlarm();
-  }, []);
-
-  const timer = useTimer({ onFinish: handleFinish });
+  const timer = useTimer();
   const presets = usePresets();
   const { isFullscreen, toggle: toggleFullscreen } = useFullscreen(stageRef);
+
+  const audioOutput = useAudioOutput();
+  const alerts = useAlertCheckpoints();
+  const { playCheckpoint, invalidateCachedSound } = useAlertPlayback({
+    sinkId: audioOutput.sinkId,
+    volume: audioOutput.volume,
+    muted: audioOutput.muted,
+  });
+
+  // Satu pemilik untuk seluruh suara peringatan, termasuk alarm waktu habis
+  // (checkpoint 0 detik) yang bisa diarahkan ke headset seperti checkpoint lain.
+  const handleAlert = useCallback(
+    (checkpoint: AlertCheckpoint) => {
+      void playCheckpoint(checkpoint);
+    },
+    [playCheckpoint],
+  );
+
+  useThresholdAlerts({
+    checkpoints: alerts.checkpoints,
+    remainingMs: timer.remainingMs,
+    status: timer.status,
+    onAlert: handleAlert,
+  });
 
   useKeyboardShortcuts({
     onToggle: timer.toggle,
@@ -73,33 +99,70 @@ export function TimeKeeperWorkspace() {
         </section>
 
         {!isFullscreen && (
-          <section
-            aria-label="Pengaturan timer"
-            className="grid gap-5 lg:grid-cols-[1.25fr_1fr]"
-          >
-            <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
-              <PresetSelector
-                presets={presets.presets}
-                activeDurationMs={timer.durationMs}
-                onSelect={(seconds) => timer.applyDuration(seconds * SECOND_MS)}
-                onRemove={presets.removePreset}
-              />
-            </div>
+          <>
+            <section
+              aria-label="Pengaturan timer"
+              className="grid gap-5 lg:grid-cols-[1.25fr_1fr]"
+            >
+              <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
+                <PresetSelector
+                  presets={presets.presets}
+                  activeDurationMs={timer.durationMs}
+                  onSelect={(seconds) => timer.applyDuration(seconds * SECOND_MS)}
+                  onRemove={presets.removePreset}
+                />
+              </div>
 
-            <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
-              <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
-                Durasi Kustom
-              </h2>
-              <DurationInput
-                onApply={timer.applyDuration}
-                onSavePreset={presets.addPreset}
-              />
-            </div>
-          </section>
+              <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
+                <h2 className="mb-4 text-xs font-semibold uppercase tracking-[0.18em] text-ink/45">
+                  Durasi Kustom
+                </h2>
+                <DurationInput
+                  onApply={timer.applyDuration}
+                  onSavePreset={presets.addPreset}
+                />
+              </div>
+            </section>
+
+            <section
+              aria-label="Pengaturan peringatan dan audio"
+              className="grid gap-5 lg:grid-cols-[1.6fr_1fr]"
+            >
+              <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
+                <AlertCheckpointsPanel
+                  checkpoints={alerts.checkpoints}
+                  onToggle={alerts.toggleCheckpoint}
+                  onRemove={alerts.removeCheckpoint}
+                  onAdd={alerts.addCheckpoint}
+                  playCheckpoint={playCheckpoint}
+                  invalidateCachedSound={invalidateCachedSound}
+                />
+              </div>
+
+              <div className="rounded-3xl border border-ink/5 bg-surface p-5 shadow-[0_18px_40px_-38px_rgba(45,52,54,0.5)] sm:p-6">
+                <AudioOutputPanel
+                  supported={audioOutput.supported}
+                  devices={audioOutput.devices}
+                  sinkId={audioOutput.sinkId}
+                  volume={audioOutput.volume}
+                  muted={audioOutput.muted}
+                  isRequesting={audioOutput.isRequesting}
+                  permissionError={audioOutput.permissionError}
+                  onSinkChange={audioOutput.setSinkId}
+                  onVolumeChange={audioOutput.setVolume}
+                  onToggleMuted={audioOutput.toggleMuted}
+                  onRequestDevices={() => void audioOutput.requestDeviceAccess()}
+                  onRefreshDevices={() => void audioOutput.refreshDevices()}
+                />
+              </div>
+            </section>
+          </>
         )}
 
         {!isFullscreen && (
           <p className="text-center text-xs text-ink/40">
+            Peringatan berbunyi sekali per ambang pada tiap sesi; menambah waktu
+            atau reset akan mengaktifkannya kembali.
           </p>
         )}
       </main>
